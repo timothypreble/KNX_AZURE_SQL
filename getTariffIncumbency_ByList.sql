@@ -68,31 +68,31 @@ ALTER	 PROCEDURE [dbo].[getTariffIncumbency_ByList] ( @inbound KNX_RFP_Request R
 
 BEGIN
 /* * * * TEST * * * */
-	--DECLARE @inbound KNX_RFP_Request;
-	--INSERT INTO @inbound
-	--(	--traceID
-	--	laneId, companyCode, customerNumber,
-	--	originCity, originState, originZip, --, originMisc
-	--	destinationCity, destinationState, destinationZip, --destinationMisc,
-	--	equipmentType, customerMiles
-	--)
-	--SELECT KNXID,
-	--	   company,
-	--	   companyNumber,
-	--	   OriginCity,
-	--	   OriginState,
-	--	   OriginZip,
-	--	   DestinationCity,
-	--	   DestinationState,
-	--	   DestinationZip,
-	--	   'V' AS equipmentType,
-	--	   CustomerMiles
-	--FROM dbo.Lowes_1019894 l;
-	----SELECT * FROM @inbound;
+	-- DECLARE @inbound KNX_RFP_Request;
+	-- INSERT INTO @inbound
+	-- (	--traceID
+	-- 	laneId, companyCode, customerNumber,
+	-- 	originCity, originState, originZip, originMisc,
+	-- 	destinationCity, destinationState, destinationZip, destinationMisc,
+	-- 	equipmentType, customerMiles
+	-- )
+	-- SELECT [USXONE LaneID],
+	-- 	   [company code],
+	-- 	   customerNumber,
+	-- 	   OriginCity,
+	-- 	   OriginState,
+	-- 	   OriginZip,originMisc,
+	-- 	   DestinationCity,
+	-- 	   DestinationState,
+	-- 	   DestinationZip,DestinationMisc,
+	-- 	   'V' AS equipmentType,
+	-- 	   cast(CustomerMiles as decimal(18,3))
+	-- FROM dbo.walmart_1256670 l;
+	-- -- SELECT * FROM @inbound;
 /* * * * TEST * * * */
 
 /* * * * Set Variables * * * */
-DECLARE @contractDate DATE = '2023-07-01' --GETDATE();
+DECLARE @contractDate DATE = GETDATE();
 DECLARE @BillTO TABLE(CompanyCode VARCHAR(4) NOT NULL, customerNumber DECIMAL(7,0) NOT NULL);
 INSERT INTO @BillTo
 SELECT DISTINCT companyCode,customerNumber FROM @inbound
