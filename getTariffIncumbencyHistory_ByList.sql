@@ -14,6 +14,10 @@ GO
  08/17/2023 - Timothy Preble	- Initial Creation.
  08/21/2023 - Timothy Preble	- Update #Lanes Date Criteria.
  08/22/2023 - Timothy Preble	- Added classification_type to update statements.
+  08/24/2023 - Timothy Preble	- VERSION 5
+									Added Tariff join criteria from JeffP
+									JOIN [dbo].[TARIFF_CROSS_REFERENCE] TCR ON th.customer_bill_to_id = tcr.TARIFF_CONT_BILTO_ID 
+									AND CONCAT(th.tariff,'-',TH.tariff_item) = tcr.TARIFF_CUST_BUS_UNIT
 ==============================================================================================================================
  Indexes: 
  DatabaseName.Schema.IndexName
@@ -45,7 +49,6 @@ VALUES
 EXEC [dbo].[getTariffIncumbencyHistory_ByList] @inbound =@i
 ==============================================================================================================================
 */
-
 ALTER PROCEDURE [dbo].[getTariffIncumbencyHistory_ByList] (
 	@inbound KNX_RFP_Request READONLY
 	) AS
@@ -54,29 +57,24 @@ BEGIN
 
 /** TEST **/
 -- DECLARE @inbound KNX_RFP_Request
---INSERT INTO @inbound (
---laneId , companyCode , customerNumber
---, originCity , originState --, originZip, originMisc 
---, destinationCity , destinationState --, destinationZip, destinationMisc 
---, equipmentType , customerMiles )
---SELECT laneid,
---       companycode,
---       customernumber,
---       originCity,
---       OriginState,
---       destinationCity,
---       destinationState,
---       'V',--equipmenttype,
---       customermiles
---FROM dbo.PepsiCo_20230821
---WHERE originCity='Atlanta' AND destinationCity='Jacksonville'
+-- INSERT INTO @inbound (
+-- laneId , companyCode , customerNumber
+-- , originCity , originState, originZip, originMisc 
+-- , destinationCity , destinationState , destinationZip, destinationMisc 
+-- , equipmentType , customerMiles )
+-- SELECT [USXONE LaneID],[company code],customerNumber
+-- ,originCity,originState,originZip,originMisc
+-- ,destinationCity,destinationState,destinationZip,destinationMisc
+-- ,'V', cast(customerMiles as decimal(18,3))
+-- FROM walmart_1256670
+-- SELECT * FROM @inbound
 
---VALUES
---( '6843CCA5-1FE6-4715-AE6D-643C06106DE3', 959, '01', 1045641, 'Stevenson'
+-- VALUES
+-- ( '6843CCA5-1FE6-4715-AE6D-643C06106DE3', 959, '01', 1045641, 'Stevenson'
 --  , 'AL', '', '', 'Corona', 'CA', '', '', 'V', 2054 )
 /** TEST **/
 
-DECLARE @contractDate DATE = GETDATE(); --'2023-08-18'
+DECLARE @contractDate DATE = GETDATE();
 DECLARE @historicalDate DATE = DATEADD(MONTH,-6,@contractDate); --'2023-02-18'
 DECLARE @BillTO TABLE(CompanyCode VARCHAR(4) NOT NULL, customerNumber DECIMAL(7,0) NOT NULL)
 INSERT INTO @BillTo
@@ -160,7 +158,7 @@ ELSE 0 END  AS [isActive],
        TL.ct_to_zip AS [d_ZipCode],					--Passed In
        -- AS [d_Miscellaneous],						--Passed In
 
-       tl.tariff_lane_id AS tariff_lane_id,						--Not sure about this since we are going to represent both OTR & BRK on the same row.  Are those Diff lane IDs?
+       tl.tariff_lane_id AS tariff_lane_id,	
 	  tl.lane_id AS [USX_Lane_Id],
 
 --USXI
@@ -173,9 +171,12 @@ ELSE 0 END  AS [isActive],
 	   tl.classification_type
 
 FROM [dbo].[tariff_header] AS TH	
-  JOIN [dbo].[tariff_lane] AS TL ON TH.tariff_header_Id = TL.tariff_header_Id
-
-  JOIN @BillTO  AS b ON b.companyCode = th.company_id AND b.customerNumber =th.customer_bill_to_id
+	JOIN [dbo].[TARIFF_CROSS_REFERENCE] TCR ON th.customer_bill_to_id = tcr.TARIFF_CONT_BILTO_ID	--20230824:TP Added 
+		AND CONCAT(th.tariff,'-',TH.tariff_item) = tcr.TARIFF_CUST_BUS_UNIT							--20230824:TP Added 
+  JOIN [dbo].[tariff_lane] AS TL ON TH.tariff_header_Id = TL.tariff_header_Id AND tl.isdeleted=0
+  JOIN @BillTO  AS b ON b.companyCode = th.company_id 
+					AND b.customerNumber = tcr.TARIFF_BILL_TO			--20230824:TP Added
+				  --AND b.customerNumber =th.customer_bill_to_id		--20230824:TP Removed
   WHERE 
 		th.pricing_entity IN ('ANY','OTR','BRK')
   AND	TH.service_entity IN ('ANY', 'SOLO', 'TEAM')
@@ -306,7 +307,6 @@ UPDATE d
 	d.usxi_laneId = CASE WHEN l.pricingEntity <>'BRK' AND d.usxi_laneId IS null THEN l.USX_Lane_Id END,
 	d.xone_Tariff_Header_Id = CASE  WHEN l.pricingEntity='BRK' AND d.xone_Tariff_Header_Id IS null THEN l.tariff_Header_Id END,
 	d.usxi_Tariff_Header_Id = CASE WHEN l.pricingEntity <>'BRK' AND d.usxi_Tariff_Header_Id IS null THEN l.tariff_Header_Id END
-
 FROM #DATA d 
 JOIN #Lanes l ON d.o_ZipCode =l.o_ZipCode AND d.d_ZipCode=l.d_ZipCode AND l.classification_type='5-Zip To 5-Zip'
    WHERE l.serviceEntity=@service_entity  
