@@ -26,11 +26,11 @@ GO
   VALUES ('01', 885698),('01', 1001183),('01', 1171822),('01', 1210032)
   EXEC dbo.getTariffBillToInfo_ByList @pCompanyAccountList = @TVP -- CompanyAcountList
 ==============================================================================================================================
-
+*/
 ALTER PROCEDURE [dbo].[getTariffBillToInfo_ByList]
 (@pCompanyAccountList dbo.[CompanyCustomerList] READONLY)
 AS
-*/
+
 /**Test Object/Data*/
 /*
 DECLARE @pCompanyAccountList dbo.CompanyCustomerList;
