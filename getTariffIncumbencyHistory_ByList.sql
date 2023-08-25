@@ -14,10 +14,11 @@ GO
  08/17/2023 - Timothy Preble	- Initial Creation.
  08/21/2023 - Timothy Preble	- Update #Lanes Date Criteria.
  08/22/2023 - Timothy Preble	- Added classification_type to update statements.
-  08/24/2023 - Timothy Preble	- VERSION 5
+ 08/24/2023 - Timothy Preble	- VERSION 5
 									Added Tariff join criteria from JeffP
 									JOIN [dbo].[TARIFF_CROSS_REFERENCE] TCR ON th.customer_bill_to_id = tcr.TARIFF_CONT_BILTO_ID 
 									AND CONCAT(th.tariff,'-',TH.tariff_item) = tcr.TARIFF_CUST_BUS_UNIT
+ 08/25/2023 - Timothy Preble	- Fixed casing on final results to match what has been documented on Confluence.
 ==============================================================================================================================
  Indexes: 
  DatabaseName.Schema.IndexName
@@ -67,14 +68,14 @@ BEGIN
 -- ,destinationCity,destinationState,destinationZip,destinationMisc
 -- ,'V', cast(customerMiles as decimal(18,3))
 -- FROM walmart_1256670
--- SELECT * FROM @inbound
+-- --SELECT * FROM @inbound
 
 -- VALUES
 -- ( '6843CCA5-1FE6-4715-AE6D-643C06106DE3', 959, '01', 1045641, 'Stevenson'
 --  , 'AL', '', '', 'Corona', 'CA', '', '', 'V', 2054 )
 /** TEST **/
 
-DECLARE @contractDate DATE = GETDATE();
+DECLARE @contractDate DATE = '2023-07-01'--GETDATE();
 DECLARE @historicalDate DATE = DATEADD(MONTH,-6,@contractDate); --'2023-02-18'
 DECLARE @BillTO TABLE(CompanyCode VARCHAR(4) NOT NULL, customerNumber DECIMAL(7,0) NOT NULL)
 INSERT INTO @BillTo
@@ -516,7 +517,7 @@ SELECT *
 
 
 
-;WITH _usxi AS (
+;WITH _usxi (companyCode, customerNumber, tariff_header_Id, USX_Lane_Id, knx_Lane_Id) AS (
 SELECT DISTINCT d.companyCode,d.customerNumber
 ,d.usxi_Tariff_Header_Id AS tariff_Header_Id, d.usxi_laneId AS USX_lane_Id
 ,d.knx_LaneId--, d.o_City, d.d_City
