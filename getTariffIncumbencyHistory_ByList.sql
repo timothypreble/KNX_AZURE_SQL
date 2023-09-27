@@ -1,3 +1,4 @@
+/****** Object:  StoredProcedure [dbo].[getTariffIncumbencyHistory_ByList]    Script Date: 9/26/2023 4:46:43 PM ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
@@ -19,6 +20,7 @@ GO
 									JOIN [dbo].[TARIFF_CROSS_REFERENCE] TCR ON th.customer_bill_to_id = tcr.TARIFF_CONT_BILTO_ID 
 									AND CONCAT(th.tariff,'-',TH.tariff_item) = tcr.TARIFF_CUST_BUS_UNIT
  08/25/2023 - Timothy Preble	- Fixed casing on final results to match what has been documented on Confluence.
+ 09/26/2023 - Timothy Preble	- #Lanes OR critera was outside of parenthesis, corrected. 
 ==============================================================================================================================
  Indexes: 
  DatabaseName.Schema.IndexName
@@ -43,10 +45,8 @@ INSERT INTO @i (
 	    , customerMiles
 	                )
 VALUES
-( 
-  '6843CCA5-1FE6-4715-AE6D-643C06106DE3', 959, '01', 1045641, 'Stevenson'
-  , 'AL', '', '', 'Corona', 'CA', '', '', 'V', 2054 )
-
+( '6843CCA5-1FE6-4715-AE6D-643C06106DE3', 959, '01', 1045641, 'Stevenson', 'AL', '', '', 'Corona', 'CA', '', '', 'V', 2054 )
+,(NULL, 3,'01',1302773,'Fairburn','GA',NULL,NULL, 'Newnan', 'GA', NULL,NULL, NULL, '939')
 EXEC [dbo].[getTariffIncumbencyHistory_ByList] @inbound =@i
 ==============================================================================================================================
 */
@@ -71,11 +71,12 @@ BEGIN
 -- --SELECT * FROM @inbound
 
 -- VALUES
+--  (3,'01',1302773,'Fairburn','GA',NULL,NULL, 'Newnan', 'GA', NULL,NULL, NULL, '939')
 -- ( '6843CCA5-1FE6-4715-AE6D-643C06106DE3', 959, '01', 1045641, 'Stevenson'
 --  , 'AL', '', '', 'Corona', 'CA', '', '', 'V', 2054 )
 /** TEST **/
 
-DECLARE @contractDate DATE = '2023-07-01'--GETDATE();
+DECLARE @contractDate DATE = GETDATE();
 DECLARE @historicalDate DATE = DATEADD(MONTH,-6,@contractDate); --'2023-02-18'
 DECLARE @BillTO TABLE(CompanyCode VARCHAR(4) NOT NULL, customerNumber DECIMAL(7,0) NOT NULL)
 INSERT INTO @BillTo
@@ -184,8 +185,8 @@ FROM [dbo].[tariff_header] AS TH
   AND	TH.isdeleted=0
   --AND	DATEADD(MONTH,-6,@contractDate) BETWEEN tl.lane_effective_date AND TL.lane_expiration_date
   AND @contractDate BETWEEN tl.lane_effective_date AND TL.lane_expiration_date
-AND (tl.lane_effective_date>=@historicalDate AND tl.lane_expiration_date<=@historicalDate)
-OR  tl.lane_expiration_date>=@contractDate
+AND (tl.lane_effective_date>=@historicalDate AND tl.lane_expiration_date<=@historicalDate
+OR  tl.lane_expiration_date>=@contractDate)	
 
 /* * * * Create Temp outbound table * * * */
 DROP TABLE IF EXISTS #Data;
@@ -609,4 +610,3 @@ SELECT distinct l.companyCode,l.customerNumber,l.tariff_Header_Id,l.USX_Lane_Id,
  WHERE th.tariff_header_Id = 3082 AND tl.lane_id=483
 */
 END
-GO
