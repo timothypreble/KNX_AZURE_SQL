@@ -1,4 +1,3 @@
-/****** Object:  StoredProcedure [dbo].[getTariffIncumbencyHistory_ByList]    Script Date: 9/26/2023 4:46:43 PM ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
@@ -24,8 +23,8 @@ GO
  10/03/2023 - Timothy Preble	- Changed @currentDate to @currentDate.
 									Removed commented out code from bottom of procedure.
 									Added the "Frakie Logic" to the bottom of procedure.
-									Revised "WHERE" criteria to include Finaled orders and Non-TONU orders.
-										https://usxpress.atlassian.net/browse/KPS-62
+									Revised "WHERE" criteria to include active and inactive within the 6 month range.
+										https://usxpress.atlassian.net/browse/KPS-63
 									
 
 ==============================================================================================================================
@@ -574,3 +573,4 @@ WHERE th.customer_bill_to_id = 1045641
 
 
 END
+GO
