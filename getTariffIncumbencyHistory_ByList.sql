@@ -21,6 +21,13 @@ GO
 									AND CONCAT(th.tariff,'-',TH.tariff_item) = tcr.TARIFF_CUST_BUS_UNIT
  08/25/2023 - Timothy Preble	- Fixed casing on final results to match what has been documented on Confluence.
  09/26/2023 - Timothy Preble	- #Lanes OR critera was outside of parenthesis, corrected. 
+ 10/03/2023 - Timothy Preble	- Changed @currentDate to @currentDate.
+									Removed commented out code from bottom of procedure.
+									Added the "Frakie Logic" to the bottom of procedure.
+									Revised "WHERE" criteria to include Finaled orders and Non-TONU orders.
+										https://usxpress.atlassian.net/browse/KPS-62
+									
+
 ==============================================================================================================================
  Indexes: 
  DatabaseName.Schema.IndexName
@@ -76,8 +83,8 @@ BEGIN
 --  , 'AL', '', '', 'Corona', 'CA', '', '', 'V', 2054 )
 /** TEST **/
 
-DECLARE @contractDate DATE = GETDATE();
-DECLARE @historicalDate DATE = DATEADD(MONTH,-6,@contractDate); --'2023-02-18'
+DECLARE @currentDate DATE = GETDATE();
+DECLARE @historicalDate DATE = DATEADD(MONTH,-6,@currentDate); --'2023-02-18'
 DECLARE @BillTO TABLE(CompanyCode VARCHAR(4) NOT NULL, customerNumber DECIMAL(7,0) NOT NULL)
 INSERT INTO @BillTo
 SELECT DISTINCT companyCode,customerNumber FROM @inbound
@@ -141,7 +148,7 @@ INSERT INTO #Lanes
 )
 
 SELECT NULL AS processed,
-CASE WHEN @contractDate BETWEEN tl.lane_effective_date AND TL.lane_expiration_date THEN 1
+CASE WHEN @currentDate BETWEEN tl.lane_effective_date AND TL.lane_expiration_date THEN 1
 ELSE 0 END  AS [isActive],
        th.company_id AS [companyCode],				--Passed In
        th.customer_bill_to_id AS [customerNumber],	--Passed In
@@ -179,14 +186,26 @@ FROM [dbo].[tariff_header] AS TH
   JOIN @BillTO  AS b ON b.companyCode = th.company_id 
 					AND b.customerNumber = tcr.TARIFF_BILL_TO			--20230824:TP Added
 				  --AND b.customerNumber =th.customer_bill_to_id		--20230824:TP Removed
-  WHERE 
+
+/**/
+WHERE 
 		th.pricing_entity IN ('ANY','OTR','BRK')
   AND	TH.service_entity IN ('ANY', 'SOLO', 'TEAM')
   AND	TH.isdeleted=0
-  --AND	DATEADD(MONTH,-6,@contractDate) BETWEEN tl.lane_effective_date AND TL.lane_expiration_date
-  AND @contractDate BETWEEN tl.lane_effective_date AND TL.lane_expiration_date
-AND (tl.lane_effective_date>=@historicalDate AND tl.lane_expiration_date<=@historicalDate
-OR  tl.lane_expiration_date>=@contractDate)	
+-- 20231003:TP Removed
+--   --AND	DATEADD(MONTH,-6,@currentDate) BETWEEN tl.lane_effective_date AND TL.lane_expiration_date
+--   AND @currentDate BETWEEN tl.lane_effective_date AND TL.lane_expiration_date
+--   AND (tl.lane_effective_date>=@historicalDate AND tl.lane_expiration_date<=@historicalDate
+--   		OR  tl.lane_expiration_date>=@currentDate)	
+
+-- 20231003:TP Added
+  AND
+	(
+		( @historicalDate BETWEEN tl.lane_effective_date AND tl.lane_expiration_date )
+		OR ( tl.lane_expiration_date >= @currentDate )
+		OR ( tl.lane_effective_date  BETWEEN @historicalDate AND @currentDate )
+	);
+
 
 /* * * * Create Temp outbound table * * * */
 DROP TABLE IF EXISTS #Data;
@@ -490,34 +509,6 @@ where		l.serviceEntity=@service_entity
 
 
 
-
-/* Merge USXI & XONE into a single 
-;WITH _usxi AS (
-SELECT distinct l.companyCode,l.customerNumber
-,l.tariff_Header_Id,l.USX_Lane_Id
-,usxi_knx_lane_id AS knx_Lane_Id
---,l.xone_knx_lane_id
- FROM #Lanes l
- where --l.xone_knx_lane_id IS NOT NULL OR
-	   l.usxi_knx_lane_id IS NOT NULL
-),
-_xone AS (
-SELECT distinct l.companyCode,l.customerNumber
-,l.tariff_Header_Id,l.USX_Lane_Id
-,l.xone_knx_lane_id AS knx_Lane_Id
- FROM #Lanes l
- where l.xone_knx_lane_id IS NOT NULL
-	--OR l.usxi_knx_lane_id IS NOT NULL
-)
-SELECT *
-	   FROM _usxi
-UNION
-SELECT *
-	   FROM _xone
-*/
-
-
-
 ;WITH _usxi (companyCode, customerNumber, tariff_header_Id, USX_Lane_Id, knx_Lane_Id) AS (
 SELECT DISTINCT d.companyCode,d.customerNumber
 ,d.usxi_Tariff_Header_Id AS tariff_Header_Id, d.usxi_laneId AS USX_lane_Id
@@ -539,74 +530,47 @@ SELECT *
 --ORDER BY _usxi.o_City,_usxi.d_City;
 
 
-/*
+/************************************************
+--[8/18 10:37 AM] Frankie Clement
 
-  SELECT * FROM #DATA;
-SELECT * FROM #Lanes WHERE o_City='Atlanta' AND d_City='Jacksonville';
+SELECT th.tariff_header_Id,tl.tariff_lane_id,tl.lane_id,tl.lane_effective_date,tl.lane_expiration_date
+FROM dbo.tariff_header AS th
+    JOIN dbo.tariff_lane AS tl
+        ON tl.tariff_header_Id = th.tariff_header_Id
+WHERE th.customer_bill_to_id = 1045641
+      AND tl.ct_from_city = 'Dallas'
+      AND tl.ct_to_city = 'CONWAY'
+      --AND (tl.lane_effective_date<='2023-02-18' AND tl.lane_expiration_date>='2023-08-18') OR (tl.lane_expiration_date>='2023-08-18')
+      AND
+      (
+          ('2023-02-18' BETWEEN tl.lane_effective_date AND tl.lane_expiration_date )
+          OR (tl.lane_expiration_date >= '2023-08-18')
+      );
 
+--[8/18 10:40 AM] Frankie Clement
 
-SELECT *
-FROM #DATA d 
-  JOIN #Lanes l ON (d.o_City =l.o_City AND d.o_State=l.o_State) AND (d.d_City=l.d_City AND d.d_State=l.d_State) AND l.classification_type='City To City' 
-  WHERE l.serviceEntity='SOLO'
+SELECT th.tariff_header_Id,
+       tl.tariff_lane_id,
+       tl.lane_id
+	   ,tl.lane_effective_date,tl.lane_expiration_date
+FROM dbo.tariff_header AS th
+    JOIN dbo.tariff_lane AS tl
+        ON tl.tariff_header_Id = th.tariff_header_Id
+WHERE th.customer_bill_to_id = 1045641
+      AND tl.ct_from_city = 'Dallas'
+      AND tl.ct_to_city = 'CONWAY'
 
+      --AND (tl.lane_effective_date<='2023-02-18' AND tl.lane_expiration_date>='2023-08-18') OR (tl.lane_expiration_date>='2023-08-18')
+
+      AND
+      (
+          (
+			'2023-02-18' BETWEEN tl.lane_effective_date AND tl.lane_expiration_date )
+			OR (tl.lane_expiration_date >= '2023-08-18')
+			OR (tl.lane_effective_date  BETWEEN '2023-02-18' AND '2023-08-18'
+          )
+      );
 */
 
-		/* * * * combine all data into a single table & return a distinct list * * * */
- /*DECLARE @Outbound TABLE 
-(
-companyCode VARCHAR(4),
-customerNumber DECIMAL(7,0),
-tariff_header_Id int,
-USX_Lane_Id INT,
-KNX_Lane_Id INT
-)
-INSERT INTO @Outbound
-(
-    companyCode,
-    customerNumber,
-	tariff_header_Id,
-    USX_Lane_Id,
-    KNX_Lane_Id
-)
 
- SELECT distinct l.companyCode,l.customerNumber,l.tariff_Header_Id,l.USX_Lane_Id,xone_knx_lane_id
- FROM #Lanes l
- WHERE l.xone_knx_lane_id IS NOT NULL
-
-UNION ALL
-SELECT distinct l.companyCode,l.customerNumber,l.tariff_Header_Id,l.USX_Lane_Id,usxi_knx_lane_id
- FROM #Lanes l
- WHERE l.usxi_knx_lane_id IS NOT null
- 
- SELECT DISTINCT companyCode,
-        customerNumber,
-        tariff_header_Id,
-        USX_Lane_Id,
-        KNX_Lane_Id
- FROM @Outbound
- ORDER BY companyCode,customerNumber,tariff_header_Id,USX_Lane_Id
-
-
- SELECT l.processed, l.companyCode,l.customerNumber,l.tariff_Header_Id,l.USX_Lane_Id
- ,xone_knx_lane_id,usxi_knx_lane_id 
- ,d.o_City,d.o_State,d.o_Zip,d.d_City,d.d_State,d.d_zip
- FROM #Lanes l
- LEFT JOIN #DATA d 
- ON l.usxi_knx_lane_id = d.knx_LaneId
- WHERE usxi_knx_lane_id IS NOT NULL OR xone_knx_lane_id IS NOT NULL
- --l.usxi_knx_lane_id=1156
- order BY l.tariff_lane_id,l.USX_Lane_Id;
-
-
- SELECT *
- FROM #Lanes
- WHERE o_City='Hopewell'
- and d_State='GA'
-
- SELECT *
- FROM dbo.tariff_header th
- JOIN dbo.tariff_lane tl ON tl.tariff_header_Id = th.tariff_header_Id
- WHERE th.tariff_header_Id = 3082 AND tl.lane_id=483
-*/
 END
