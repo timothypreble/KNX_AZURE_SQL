@@ -29,6 +29,9 @@ GO
                                     Removed all Brokerag / Non-Brokerage logic.  This proc will return the Tariff Header/Lane IDs
                                         The incumbency proc will determine the incumbent pricing entity
                                         The historical order proc will determine the pricing entity that actually serviced the load
+									
+									Remove the LEFT(xyz, 3) logic from all matches.  This will ensure that if the rfp contains a range 000-001
+										will try and match.
 
 ==============================================================================================================================
  Indexes: 
@@ -64,8 +67,76 @@ ALTER PROCEDURE [dbo].[getTariffIncumbencyHistory_ByList] (
 	) AS
 
 BEGIN
+/** TEST **/
+/*
+DECLARE @inbound KNX_RFP_Request
+INSERT INTO @inbound (
+laneId , companyCode , customerNumber
+, originCity , originState, originZip, originMisc 
+, destinationCity , destinationState , destinationZip, destinationMisc 
+, equipmentType , customerMiles )
+VALUES
 
-DECLARE @currentDate DATE = GETDATE();
+
+--•    Level 1 -  Zip to zip ('5-Zip To 5-Zip')
+	(1,'01', 1063192,'Murfreesboro','TN', '37130',NULL,'Neelys Landing','MO','63755',NULL,NULL,1111), --3Records (2998/34 - 3330/24 - 3559/16)
+
+--•    Level 2 -  Zip to city/state ('5-Zip To City')
+	(2,'01', 973983, NULL,NULL,'92374',NULL,'DURANT', 'OK', NULL, NULL, NULL,2222), 	--1432/23
+
+--•    Level 3 - City/state to zip ('City To 5-Zip')
+	(3,'01',1116153,'NACOGDOCHES','TX',NULL,NULL,NULL,NULL,'76712',NULL,NULL,3333), --(3181/6320 active )
+	-- (3,'01', 975812,'Chattanooga','TN',NULL,NULL,NULL,NULL,'33810',NULL,NULL,3333)
+
+--•    Level 4 - City/state to city/state ('City To City')
+	(4,'01', 1045641,'Jacksonville','Fl',NULL,NULL,'Chattanooga','TN',NULL,NULL,NULL,4444),	--2Records (3397/160 active - 3397/162 inactive)
+
+--•    Level 5 - Zip to zone ('5-Zip To 3-Zip' )
+	(5,'01',1259726,NULL,NULL,'45331',NULL,NULL,NULL,NULL,'305',NULL,5555), -- 3Recrods (3276,10 inactive - 3276/107 inactive - 3694/41 active)
+	(5,'01',1259726,null,null,'03031',null,null,null,NULL,'070-088',null,5555), --3Records (3276/9 inactive - 3276/98 inactive - 3694/23 active)
+
+--•    Level 6 - Zone to zip ('3-Zip To 5-Zip')
+	(6, '01', 1259726, NULL, 'GA', '305', NULL, NULL, 'GA', '30253', NULL, NULL, 6666), --3Records (3276/31 inactive - 3276/79 inactive - 3694/13 active)
+	(6, '01', 1259726, NULL, 'CA', NULL, '900-917', NULL, 'AZ', '85043', NULL, NULL, 6666), --3Records (3276/28 inactive - 3276/76 inactive - 3694/10 active)
+
+--•    Level 7 - City/state to zone ('City To 3-Zip')
+	(7,'01', 712514,'Jacksonville','FL',NULL,NULL,NULL,NULL,NULL,'704',NULL,7), --1269/1084
+	(7,'01', 712514,'Jacksonville','FL',NULL,NULL,NULL,NULL,NULL,'705-707',NULL,7), --1269/1085 
+
+--•    Level 8 - Zone to city/state ('3-Zip To City')
+	(8, '01', 973983,NULL,NULL,NULL,'307','APPLE VLY', 'CA', NULL,NULL,NULL,555), -- 1435/17
+	(8,'01', 975812,Null,null,null,'324-325','Chattanooga','TN',NULL,NULL,null,4321), --(784/14)
+
+--•    Level 9 - Zone to zone ('3-Zip To 3-Zip')
+	( 9, '01', 1259726, NULL, 'IA', '527', NULL, NULL, 'GA', '305', NULL, NULL, NULL ), -- 3Records (3275/4 inactive - 3275/53 inactive - 3692/7 active )
+	( 9, '01', 1259726, NULL, 'IA', '527', NULL, NULL, 'OH', '430-432', NULL, NULL, NULL ),	--: ###### 3Records verify & log IDs #### :--
+	-- ( 9, '01', 1259726, NULL, 'IL', '600-608', NULL, NULL, 'CA', '900-917', NULL, NULL, NULL ),		--3693/5	--TEAM
+
+--•    Level 10 - Zip to state ('5-Zip To State')
+	( 10, '01', 1116542, NULL, 'CA', '95418', NULL, NULL, 'AR', NULL, NULL, NULL, NULL ),	--(3480/1441)
+
+--•    Level 11- State to zip ('State To 5-Zip' )
+	( 11, '01', 1116153, NULL, 'ON', NULL, NULL, NULL, 'NY', '13340', NULL, NULL, NULL ),	--(3181/7128)
+
+--•    Level 12 - City/state to state ('City To State')
+	( 12, '01', 744714, 'ALACHUA', 'FL', NULL, NULL, NULL, 'TN', NULL, NULL, NULL, NULL ),
+    ( 12, '01', 138900, 'EL PASO', 'TX', NULL, NULL, NULL, 'BC', NULL, NULL, NULL, NULL ),   --(QA: 2336/30463)
+
+--•    Level 13 - State to city/State ('State To City' )
+	( 13, '01', 975812, NULL, 'AR', NULL, NULL, 'CHATTANOOGA', 'TN', NULL, NULL, NULL, NULL ),
+
+--•    Level 14 - Zone to state ('3-Zip To State' )
+	( 14, '01', 138900, NULL, 'AZ', '864', NULL, NULL, 'NS', NULL, NULL, NULL, NULL ),	--2Records (2336/1656 inactive - 3463/1245 active)
+
+--•    Level 15 - State to zone ('State To 3-Zip' )
+	( 15, '01', 138900, NULL, 'AB', NULL, NULL, NULL, 'AZ', '864', NULL, NULL, NULL ),	--2Records (2336/11 inactive - 3463/11 active)
+
+--•    Level 16 -  State to state ('State To State'  )
+	( 16, '01', 1116542, NULL, 'NC', NULL, NULL, NULL, 'AR', NULL, NULL, NULL, NULL )	--879/2777
+*/
+/** TEST **/
+
+DECLARE @currentDate DATE = GETDATE()-1;
 DECLARE @historicalDate DATE = DATEADD(MONTH,-6,@currentDate); --'2023-02-18'
 DECLARE @BillTO TABLE(CompanyCode VARCHAR(4) NOT NULL, customerNumber DECIMAL(7,0) NOT NULL)
 INSERT INTO @BillTo
@@ -128,7 +199,7 @@ INSERT INTO #Lanes
 	classification_type
 )
 
-SELECT 
+SELECT distinct
 	NULL AS processed,
 	CASE WHEN @currentDate BETWEEN tl.lane_effective_date AND TL.lane_expiration_date THEN 1
 	ELSE 0 END  AS [isActive],
@@ -284,7 +355,20 @@ DECLARE @isANY_SERVICE CHAR(3) = (SELECT TOP(1) 'ANY' FROM #Lanes WHERE serviceE
 
 /* * * * Return Service / Pricing Entity * * * */
 DECLARE @service_entity VARCHAR(4) = COALESCE(@isSOLO,@isANY_SERVICE,@isTEAM);
--- SELECT @currentDate,@historicalDate, @service_entity;
+SELECT  @service_entity --,@currentDate,@historicalDate
+
+-- SELECT o_ZipCode,d_ZipCode, * FROM #data d where customerNumber=1259726
+-- select o_ZipCode,d_ZipCode, * from #Lanes where customernumber=1259726
+-- and o_zipcode = '03031'
+-- and d_zipCode = '070-088'
+
+-- SELECT l.classification_type
+-- ,d.o_ZipCode ,l.o_ZipCode , d.d_ZipCode,l.d_ZipCode
+-- , *
+-- FROM #DATA d 
+--   JOIN #Lanes l ON d.companyCode = l.companyCode and d.customerNumber=l.customerNumber AND 
+-- d.o_ZipCode =l.o_ZipCode AND d.d_ZipCode=l.d_ZipCode AND l.classification_type='5-Zip To 3-Zip' 
+--     WHERE l.serviceEntity=@service_entity  
 
 /* * * * Process GEOG Matching * * * */
 --•    Level 1 -  Zip to zip
@@ -343,7 +427,7 @@ FROM #DATA d
 	-- d.usxi_Tariff_Header_Id = CASE WHEN l.pricingEntity <>'BRK' AND d.usxi_Tariff_Header_Id IS null THEN l.tariff_Header_Id END
   FROM #DATA d 
   JOIN #Lanes l ON d.companyCode = l.companyCode and d.customerNumber=l.customerNumber AND 
-d.o_ZipCode =l.o_ZipCode AND LEFT(d.d_ZipCode,3)=LEFT(l.d_ZipCode,3) AND l.classification_type='5-Zip To 3-Zip' 
+d.o_ZipCode =l.o_ZipCode AND d.d_ZipCode=l.d_ZipCode AND l.classification_type='5-Zip To 3-Zip' 
     WHERE l.serviceEntity=@service_entity  
 
 --•    Level 6 - Zone to zip
@@ -355,7 +439,7 @@ d.o_ZipCode =l.o_ZipCode AND LEFT(d.d_ZipCode,3)=LEFT(l.d_ZipCode,3) AND l.class
 	-- d.usxi_Tariff_Header_Id = CASE WHEN l.pricingEntity <>'BRK' AND d.usxi_Tariff_Header_Id IS null THEN l.tariff_Header_Id END
   FROM #DATA d 
   JOIN #Lanes l ON d.companyCode = l.companyCode and d.customerNumber=l.customerNumber AND 
-LEFT(d.o_ZipCode,3) =LEFT(l.o_ZipCode,3) AND d.d_ZipCode=l.d_ZipCode AND l.classification_type='3-Zip To 5-Zip' 
+d.o_ZipCode =l.o_ZipCode AND d.d_ZipCode=l.d_ZipCode AND l.classification_type='3-Zip To 5-Zip' 
     WHERE l.serviceEntity=@service_entity  
 
 --•    Level 7 - City/state to zone
@@ -367,7 +451,7 @@ LEFT(d.o_ZipCode,3) =LEFT(l.o_ZipCode,3) AND d.d_ZipCode=l.d_ZipCode AND l.class
 	-- d.usxi_Tariff_Header_Id = CASE WHEN l.pricingEntity <>'BRK' AND d.usxi_Tariff_Header_Id IS null THEN l.tariff_Header_Id END
   FROM #DATA d 
   JOIN #Lanes l ON d.companyCode = l.companyCode and d.customerNumber=l.customerNumber AND 
-(d.o_City=l.o_City AND d.o_State=l.o_State) AND LEFT(d.d_ZipCode,3) = LEFT(l.d_ZipCode,3) AND l.classification_type='City To 3-Zip' 
+(d.o_City=l.o_City AND d.o_State=l.o_State) AND d.d_ZipCode = l.d_ZipCode AND l.classification_type='City To 3-Zip' 
     WHERE l.serviceEntity=@service_entity  
 
  --•    Level 8 - Zone to city/state
@@ -379,7 +463,7 @@ LEFT(d.o_ZipCode,3) =LEFT(l.o_ZipCode,3) AND d.d_ZipCode=l.d_ZipCode AND l.class
 	-- d.usxi_Tariff_Header_Id = CASE WHEN l.pricingEntity <>'BRK' AND d.usxi_Tariff_Header_Id IS null THEN l.tariff_Header_Id END
   FROM #DATA d  
   JOIN #Lanes l ON d.companyCode = l.companyCode and d.customerNumber=l.customerNumber AND 
-LEFT(d.o_ZipCode,3) =LEFT(l.o_ZipCode,3) AND (d.d_City = l.d_City and d.d_State=l.d_State) AND l.classification_type='3-Zip To City' 
+d.o_ZipCode =l.o_ZipCode AND (d.d_City = l.d_City and d.d_State=l.d_State) AND l.classification_type='3-Zip To City' 
     WHERE l.serviceEntity=@service_entity  
 
 --•    Level 9 - Zone to zone
@@ -391,7 +475,7 @@ LEFT(d.o_ZipCode,3) =LEFT(l.o_ZipCode,3) AND (d.d_City = l.d_City and d.d_State=
 	-- d.usxi_Tariff_Header_Id = CASE WHEN l.pricingEntity <>'BRK' AND d.usxi_Tariff_Header_Id IS null THEN l.tariff_Header_Id END
   FROM #DATA d  
   JOIN #Lanes l ON d.companyCode = l.companyCode and d.customerNumber=l.customerNumber AND 
-LEFT(d.o_ZipCode,3) =LEFT(l.o_ZipCode,3) AND LEFT(d.d_ZipCode,3)=LEFT(l.d_ZipCode,3) AND l.classification_type='3-Zip To 3-Zip'
+d.o_ZipCode =l.o_ZipCode AND d.d_ZipCode=l.d_ZipCode AND l.classification_type='3-Zip To 3-Zip'
     WHERE l.serviceEntity=@service_entity  
 
 --•    Level 10 - Zip to state
@@ -453,7 +537,7 @@ d.o_State=l.o_State AND (d.d_City=l.d_City AND d.d_State=l.d_State) AND l.classi
 	-- d.usxi_Tariff_Header_Id = CASE WHEN l.pricingEntity <>'BRK' AND d.usxi_Tariff_Header_Id IS null THEN l.tariff_Header_Id END
   FROM #DATA d 
   JOIN #Lanes l ON d.companyCode = l.companyCode and d.customerNumber=l.customerNumber AND 
-LEFT(d.o_ZipCode,3) = LEFT(l.o_ZipCode,3) AND d.d_State=l.d_State AND l.classification_type='3-Zip To State' 
+d.o_ZipCode = l.o_ZipCode AND d.d_State=l.d_State AND l.classification_type='3-Zip To State' 
     WHERE l.serviceEntity=@service_entity  
 
   --•    Level 15 - State to zone
@@ -465,7 +549,7 @@ LEFT(d.o_ZipCode,3) = LEFT(l.o_ZipCode,3) AND d.d_State=l.d_State AND l.classifi
 	-- d.usxi_Tariff_Header_Id = CASE WHEN l.pricingEntity <>'BRK' AND d.usxi_Tariff_Header_Id IS null THEN l.tariff_Header_Id END
   FROM #DATA d 
   JOIN #Lanes l ON d.companyCode = l.companyCode and d.customerNumber=l.customerNumber AND 
-d.o_State=l.o_State AND LEFT(d.d_ZipCode,3) = LEFT(l.d_ZipCode,3) AND l.classification_type='State To 3-Zip' 
+d.o_State=l.o_State AND d.d_ZipCode = l.d_ZipCode AND l.classification_type='State To 3-Zip' 
     WHERE  l.serviceEntity=@service_entity  
 
 --•    Level 16 -  State to state
