@@ -136,7 +136,7 @@ VALUES
 */
 /** TEST **/
 
-DECLARE @currentDate DATE = GETDATE()-1;
+DECLARE @currentDate DATE = GETDATE();
 DECLARE @historicalDate DATE = DATEADD(MONTH,-6,@currentDate); --'2023-02-18'
 DECLARE @BillTO TABLE(CompanyCode VARCHAR(4) NOT NULL, customerNumber DECIMAL(7,0) NOT NULL)
 INSERT INTO @BillTo
@@ -355,7 +355,7 @@ DECLARE @isANY_SERVICE CHAR(3) = (SELECT TOP(1) 'ANY' FROM #Lanes WHERE serviceE
 
 /* * * * Return Service / Pricing Entity * * * */
 DECLARE @service_entity VARCHAR(4) = COALESCE(@isSOLO,@isANY_SERVICE,@isTEAM);
-SELECT  @service_entity --,@currentDate,@historicalDate
+-- SELECT  @service_entity --,@currentDate,@historicalDate
 
 -- SELECT o_ZipCode,d_ZipCode, * FROM #data d where customerNumber=1259726
 -- select o_ZipCode,d_ZipCode, * from #Lanes where customernumber=1259726
